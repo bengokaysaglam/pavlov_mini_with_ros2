@@ -1,9 +1,10 @@
 <?xml version="1.0"?>
+
 <robot name="pavlov_mini" xmlns:xacro="http://ros.org/wiki/xacro">
 
-  <!-- <xacro:arg name="is_ignition" default="true"/> -->
+  <xacro:arg name="is_ignition" default="true"/>
 
-  <!-- <xacro:include filename="$(find pavlov_description)/urdf/pavlov_mini_ros2_control.xacro" /> -->
+  <xacro:include filename="$(find pavlov_description)/urdf/pavlov_mini_ros2_control.xacro" />
 
   <link name="base_link">
     <visual>
@@ -669,18 +670,12 @@
     <origin xyz="0.00000 0.00834 -0.10000"/>
   </joint>
 
-  <!--
   <gazebo>
-    <plugin name="ignition::gazebo::systems::IgnitionRos2Control"
-            filename="libign_ros2_control-system.so">
+    <plugin filename="ign_ros2_control-system" name="ign_ros2_control::IgnitionROS2ControlPlugin">
+       <parameters>$(find pavlov_control)/config/ros2_controllers.yaml</parameters>
       <robot_param>robot_description</robot_param>
-
-      <parameters>
-        $(find pavlov_control)/config/ros2_controllers.yaml
-      </parameters>
-
+      <robot_param_node>robot_state_publisher</robot_param_node>
     </plugin>
   </gazebo>
--->
 
 </robot>
