@@ -3,19 +3,18 @@
 This repository contains the development of a **ROS2-based quadruped robot**
 designed to autonomously detect and follow a red ball using onboard vision.
 
-🚧 **Status:** Work in Progress
+**Status:** Work in Progress
 
 ---
 
-## 🚀 Features
-- Quadruped locomotion using **CHAMP gait planner**
+# Features
 - ROS2 node-based control architecture
 - Vision-based red ball detection (OpenCV + HSV)
 - Modular software design for gait, control, and perception
 
 ---
 
-## 🧠 System Architecture
+# System Architecture
 - **High-level control:** Raspberry Pi (ROS2)
 - **Low-level control:** Teensy microcontroller
 - **Communication:** Serial / ROS2 topics
@@ -23,13 +22,10 @@ designed to autonomously detect and follow a red ball using onboard vision.
 
 ---
 
-## 🛠 Technologies Used
+# Technologies Used
 - ROS2
 - C++ / Python
 - OpenCV
-- CHAMP
-- Raspberry Pi
-- Teensy
 
 ---
 
