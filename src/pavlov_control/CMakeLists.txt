@@ -25,59 +25,7 @@ include_directories(
   include
   ${EIGEN3_INCLUDE_DIR}
 )
-
-# Controller node
-add_executable(pavlov_controller_node
-  src/pavlov_controller_node.cpp
-)
-
-add_executable(test_stance_node
-  src/test_stance.cpp
-)
-
-add_executable(simple_step_node
-  src/simple_step.cpp
-)
-
-ament_target_dependencies(simple_step_node
-  rclcpp
-  std_msgs
-  trajectory_msgs
-  gazebo_msgs
-  sensor_msgs
-)
-
-ament_target_dependencies(pavlov_controller_node
-  rclcpp
-  sensor_msgs
-  geometry_msgs
-  std_msgs
-  tf2
-  tf2_ros
-  tf2_geometry_msgs
-)
-
-ament_target_dependencies(test_stance_node
-  rclcpp
-  std_msgs
-)
-
-target_link_libraries(pavlov_controller_node
-  Eigen3::Eigen
-)
-
-target_link_libraries(test_stance_node
-  Eigen3::Eigen
-)
-
-# Install
-install(TARGETS
-  pavlov_controller_node
-  test_stance_node
-  simple_step_node
-  DESTINATION lib/${PROJECT_NAME}
-)
-
+                                       
 install(DIRECTORY
   launch
   config
