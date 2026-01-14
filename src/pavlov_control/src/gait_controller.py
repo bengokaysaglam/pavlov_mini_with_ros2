@@ -1,14 +1,4 @@
 #!/usr/bin/env python3
-"""
-🔥 ADVANCED COG BALANCED TROT - Gelişmiş Dengeleme
-
-Özellikler:
-- Center of Mass (CoM) dengelemesi
-- Gövde eğimi kontrolü (pitch/roll)
-- Dinamik yük dağılımı
-- Adaptive step height (hız bazlı)
-"""
-
 import rclpy
 from rclpy.node import Node
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
@@ -26,22 +16,18 @@ class AdvancedBalancedGait(Node):
             10
         )
 
-        # 🦿 BACAK KİNEMATİĞİ
         self.L1 = 0.03559
         self.L2 = 0.10000
         self.L3 = 0.10000
 
-        # 🚶 YÜRÜYÜŞ PARAMETRELERİ
         self.step_height = 0.020
         self.stance_height = -0.15
         self.step_length = 0.05
         
-        # ⚖️ GELIŞMIŞ DENGELEME PARAMETRELERİ
         self.cog_shift_gain = 0.6      # CoG kayma katsayısı (0-1)
         self.trunk_pitch_gain = 0.02   # Pitch açısı katsayısı (rad)
         self.trunk_roll_gain = 0.02    # Roll açısı katsayısı (rad)
         
-        # 📍 BACAK POZİSYONLARI (gövdeye göre, metre)
         self.hip_positions = [
             ( 0.09170,  0.05355),  # FL
             ( 0.09170, -0.05355),  # FR
@@ -49,13 +35,11 @@ class AdvancedBalancedGait(Node):
             (-0.09170, -0.05355),  # BR
         ]
         
-        # ⏱️ YÜRÜYÜŞ ZAMANLAMASI
         self.duty_cycle = 0.6
         self.total_phases = 40
         self.phase_increment = 1.0
         self.gait_phase = 0.0
 
-        # 🎯 EKLEM İSİMLERİ
         self.joint_names = [
             "hip1_fl", "hip2_fl", "knee_fl",
             "hip1_fr", "hip2_fr", "knee_fr",
@@ -66,7 +50,7 @@ class AdvancedBalancedGait(Node):
         self.started = False
         self.timer_start = self.create_timer(3.0, self.start_gait)
         
-        self.get_logger().info("🔥 ADVANCED BALANCED GAIT CONTROLLER")
+        self.get_logger().info("    ADVANCED BALANCED GAIT CONTROLLER")
         self.get_logger().info(f"   CoG shift gain: {self.cog_shift_gain}")
         self.get_logger().info(f"   Trunk pitch gain: {self.trunk_pitch_gain} rad")
         self.get_logger().info(f"   Trunk roll gain: {self.trunk_roll_gain} rad")
@@ -123,7 +107,7 @@ class AdvancedBalancedGait(Node):
 
     def apply_trunk_orientation(self, x, y, z, leg_idx, pitch, roll):
         """
-        🎯 Gövde eğimini bacak pozisyonuna uygula
+        Gövde eğimini bacak pozisyonuna uygular.
         
         Parametreler:
             x, y, z: Bacak pozisyonu
@@ -132,7 +116,7 @@ class AdvancedBalancedGait(Node):
             roll: Yalpalama açısı (rad, + sağ yukarı)
         
         Dönüş:
-            (x', y', z'): Eğim uygulanmış pozisyon
+            (x', y', z'): Eğim uygulanmış pozisyonlar
         """
         hip_x, hip_y = self.hip_positions[leg_idx]
         
@@ -152,7 +136,7 @@ class AdvancedBalancedGait(Node):
 
     def calculate_trunk_compensation(self, phase):
         """
-        ⚖️ Gövde kompanzasyonunu hesapla
+        Gövde kompanzasyonunu hesapla
         
         Dönüş:
             trunk_x, trunk_y: Gövde X-Y kayması
@@ -199,7 +183,6 @@ class AdvancedBalancedGait(Node):
 
 
     def get_leg_position(self, leg_index, phase):
-        # 🔄 TROT DESENİ
         if leg_index in [0, 3]:
             leg_phase = (phase % self.total_phases) / self.total_phases
         else:
@@ -227,8 +210,7 @@ class AdvancedBalancedGait(Node):
         if self.started:
             return
             
-        self.get_logger().info("🔥 ADVANCED BALANCED GAIT BAŞLIYOR!")
-        self.get_logger().info("   CoM + Gövde Eğimi ile maksimum stabilite")
+        self.get_logger().info(" ADVANCED BALANCED GAIT BAŞLIYOR!")
         self.started = True
         self.timer_start.cancel()
         
@@ -237,7 +219,6 @@ class AdvancedBalancedGait(Node):
 
     def gait_loop(self):
         try:
-            # ⚖️ Gövde kompanzasyonunu hesapla
             trunk_x, trunk_y, trunk_pitch, trunk_roll, stance_legs = \
                 self.calculate_trunk_compensation(self.gait_phase)
             
@@ -255,7 +236,7 @@ class AdvancedBalancedGait(Node):
             for leg_idx in range(4):
                 x, y, z, is_stance = self.get_leg_position(leg_idx, self.gait_phase)
                 
-                # ⚖️ CoG kompanzasyonu uygula
+                # CoG kompanzasyonu uygular
                 if is_stance:
                     x_comp = x - trunk_x
                     y_comp = y - trunk_y
@@ -263,12 +244,11 @@ class AdvancedBalancedGait(Node):
                     x_comp = x - trunk_x * 0.5
                     y_comp = y - trunk_y * 0.5
                 
-                # 🎯 Gövde eğimi uygula
+                # Gövde eğimi uygular
                 x_final, y_final, z_final = self.apply_trunk_orientation(
                     x_comp, y_comp, z, leg_idx, trunk_pitch, trunk_roll
                 )
                 
-                # Y işareti
                 if leg_idx in [1, 3]:
                     y_ik = -y_final
                 else:
@@ -288,7 +268,6 @@ class AdvancedBalancedGait(Node):
             msg.points = [point]
             self.publisher_.publish(msg)
             
-            # 📊 Detaylı log
             if int(self.gait_phase) % 10 == 0:
                 leg_names = ["FL", "FR", "BL", "BR"]
                 stance_names = [leg_names[i] for i in stance_legs]
