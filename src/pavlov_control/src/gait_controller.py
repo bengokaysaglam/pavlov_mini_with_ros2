@@ -5,7 +5,6 @@ from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from builtin_interfaces.msg import Duration
 import math
 
-
 class AdvancedBalancedGait(Node):
     def __init__(self):
         super().__init__("advanced_balanced_gait")
@@ -50,21 +49,26 @@ class AdvancedBalancedGait(Node):
         self.started = False
         self.timer_start = self.create_timer(3.0, self.start_gait)
         
-        self.get_logger().info("    ADVANCED BALANCED GAIT CONTROLLER")
-        self.get_logger().info(f"   CoG shift gain: {self.cog_shift_gain}")
-        self.get_logger().info(f"   Trunk pitch gain: {self.trunk_pitch_gain} rad")
-        self.get_logger().info(f"   Trunk roll gain: {self.trunk_roll_gain} rad")
-
+        self.get_logger().info("    ADVANCED BALANCED GAIT CONTROLLER")                 
 
     def InverseKinematics(self, x, y, z):
         try:
+            # Robotu hedefe dogru dondurur.
             theta1 = math.atan2(y, -z)
+
+            # Robota tabanindan baktigimizde Y-Z duzleminde gorulen kus ucusu mesafesidir.
             r_yz = math.sqrt(y**2 + z**2)
+
             d = r_yz - self.L1
+            # hedefe ulasmak icin kolun ne kadar uzanmasi gerektigini hesaplariz.
             D = math.sqrt(x**2 + d**2)
+
+            # hedefe ulasmak icin dirsek kisminin ne kadar bukulecegini hesaplariz.
             cos_theta3 = (self.L2**2 + self.L3**2 - D**2) / (2 * self.L2 * self.L3)
-            cos_theta3 = max(-1, min(1, cos_theta3))
+            cos_theta3 = max(-1, min(1, cos_theta3))                                          
             theta3 = math.acos(cos_theta3) - math.pi
+
+            # omuz ekleminin ne kadar kalkacagini hesaplariz.
             alpha = math.atan2(-x, d)
             beta_denom = 2 * self.L2 * D
             if abs(beta_denom) < 1e-6:
@@ -79,10 +83,8 @@ class AdvancedBalancedGait(Node):
             self.get_logger().error(f"❌ IK Error: {e}")
             return 0.0, 0.0, 0.0
 
-
     def smooth_interpolate(self, t):
         return t * t * t * (t * (t * 6 - 15) + 10)
-
 
     def get_swing_trajectory(self, t):
         t_smooth = self.smooth_interpolate(t)
@@ -97,13 +99,11 @@ class AdvancedBalancedGait(Node):
             
         return x, z
 
-
     def get_stance_trajectory(self, t):
         t_smooth = self.smooth_interpolate(t)
         x = self.step_length/2 - self.step_length * t_smooth
         z = 0.0
         return x, z
-
 
     def apply_trunk_orientation(self, x, y, z, leg_idx, pitch, roll):
         """
@@ -126,13 +126,13 @@ class AdvancedBalancedGait(Node):
         
         # Roll etkisi (sağ-sol eğim)
         # Sağ bacaklar roll ile yukarı/aşağı gider
-        z_roll = -hip_y * math.sin(roll)  # Negatif çünkü +roll = sağ yukarı
+        # Negatif çünkü +roll = sağ yukarı
+        z_roll = -hip_y * math.sin(roll) 
         
-        # Toplam Z offseti
+        # Toplam z offseti
         z_adjusted = z + z_pitch + z_roll
         
         return x, y, z_adjusted
-
 
     def calculate_trunk_compensation(self, phase):
         """
@@ -167,11 +167,10 @@ class AdvancedBalancedGait(Node):
             trunk_x = support_x * self.cog_shift_gain
             trunk_y = support_y * self.cog_shift_gain
             
-            # Gövde eğimi (dinamik denge)
-            # Eğer destek ön tarafta -> gövde öne eğil
-            trunk_pitch = -support_x * self.trunk_pitch_gain  # Negatif: ön destek = ön aşağı
+            # Eğer destek ön tarafta -> gövdeyi one egdiririz.
+            trunk_pitch = -support_x * self.trunk_pitch_gain
             
-            # Eğer destek sağda -> gövde sağa eğil
+            # Eğer destek sağda -> gövde sağa egdiririz.
             trunk_roll = -support_y * self.trunk_roll_gain
         else:
             trunk_x = 0.0
@@ -180,7 +179,6 @@ class AdvancedBalancedGait(Node):
             trunk_roll = 0.0
         
         return trunk_x, trunk_y, trunk_pitch, trunk_roll, stance_legs
-
 
     def get_leg_position(self, leg_index, phase):
         if leg_index in [0, 3]:
@@ -205,7 +203,6 @@ class AdvancedBalancedGait(Node):
         
         return x, y, z, is_stance
 
-
     def start_gait(self):
         if self.started:
             return
@@ -215,7 +212,6 @@ class AdvancedBalancedGait(Node):
         self.timer_start.cancel()
         
         self.timer_gait = self.create_timer(0.05, self.gait_loop)
-
 
     def gait_loop(self):
         try:
@@ -284,7 +280,6 @@ class AdvancedBalancedGait(Node):
         except Exception as e:
             self.get_logger().error(f"❌ Gait Error: {e}")
 
-
 def main(args=None):
     rclpy.init(args=args)
     node = AdvancedBalancedGait()
@@ -296,10 +291,6 @@ def main(args=None):
     
     node.destroy_node()
     rclpy.shutdown()
-
-
-if __name__ == '__main__':
-    main()
 
 
 if __name__ == '__main__':
