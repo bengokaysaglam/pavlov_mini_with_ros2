@@ -34,6 +34,7 @@ install(DIRECTORY
 
 install(PROGRAMS
   src/gait_controller.py
+  src/keyboard_teleop.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
