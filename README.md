@@ -34,8 +34,6 @@ designed to autonomously detect and follow a red ball using onboard vision.
 pavlov_mini_ros2_ws/
 ├── src/
 │   ├── pavlov_control
-│   ├── pavlov_gait
 │   ├── pavlov_description
-│   └── pavlov_gazebo
 # pavlov_mini_with_ros2
 Quadruped, Autonomous robot capable of tracking objects using image processing.
