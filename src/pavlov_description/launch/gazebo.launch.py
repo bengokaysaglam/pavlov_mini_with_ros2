@@ -12,7 +12,6 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     pavlov_description = get_package_share_directory("pavlov_description")
     
-    
     model_arg = DeclareLaunchArgument(
         name="model", 
         default_value=os.path.join(pavlov_description, "urdf", "pavlov_mini.urdf.xacro"),
