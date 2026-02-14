@@ -51,7 +51,6 @@
         <box size="0.080 0.060 0.050"/>
       </geometry>
     </collision>
-
   </link>
 
   <link name="hip_fl_ref">
@@ -250,7 +249,7 @@
     </visual>
     <inertial>
       <origin xyz="-0.000176 0.010059 -0.024478" rpy="0 0 0"/>
-      <mass value="0.550811"/>
+      <mass value="0.096623"/>
       <inertia
         ixx="0.00109482916"
         iyy="0.00092023806"
@@ -300,7 +299,7 @@
     </visual>
     <inertial>
       <origin xyz="-0.000176 0.010059 -0.024478" rpy="0 0 0"/>
-      <mass value="0.550811"/>
+      <mass value="0.096623"/>
       <inertia
         ixx="0.00109482916"
         iyy="0.00092023806"
@@ -676,6 +675,32 @@
       <robot_param>robot_description</robot_param>
       <robot_param_node>robot_state_publisher</robot_param_node>
     </plugin>
+  </gazebo>
+
+  <gazebo reference="camera_link">
+    <sensor name="camera" type="camera">
+      <pose> 0 0 0.25 0 0.7 1</pose>
+      <visualize>true</visualize>
+      <update_rate>10.0</update_rate>
+
+      <camera>
+        <horizontal_fov>1.0</horizontal_fov>
+        <image>
+          <format>R8G8B8</format>
+          <width>640</width>
+          <height>480</height>
+        </image>
+
+        <clip>
+          <near>0.05</near>
+          <far>1.0</far>
+        </clip>
+      </camera>
+
+      <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
+        <frame_name>camera_optical_link</frame_name>
+      </plugin> 
+    </sensor>
   </gazebo>
 
 </robot>

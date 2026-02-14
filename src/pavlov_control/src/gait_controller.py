@@ -9,7 +9,7 @@ import math
 class GaitController(Node):
     def __init__(self):
         super().__init__("gait_controller")
-
+        
         self.publisher_ = self.create_publisher(
             JointTrajectory,
             "/joint_trajectory_controller/joint_trajectory",
