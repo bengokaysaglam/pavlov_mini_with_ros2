@@ -29,7 +29,7 @@ designed to autonomously detect and follow a red ball using onboard vision.
 
 ---
 
-## 📂 Workspace Structure
+# Workspace Structure
 ```text
 pavlov_mini_ros2_ws/
 ├── src/

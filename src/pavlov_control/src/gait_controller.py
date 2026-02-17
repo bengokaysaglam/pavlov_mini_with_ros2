@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
+from rclpy.clock import Clock, ClockType
 from geometry_msgs.msg import Twist
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from builtin_interfaces.msg import Duration
@@ -32,10 +33,15 @@ class GaitController(Node):
         self.step_height = 0.020
         self.stance_height = -0.15
         self.base_step_length = 0.00
+        self.max_step_length = 0.06
+        self.leg_step_alpha = 0.25
         
         # TURNING PARAMETERS
         self.wheelbase = 0.1834
         self.track_width = 0.1071
+        self.limit_turn_to_avoid_counter_step = True
+        self.turn_limit_min_linear = 0.01
+        self.turn_reduction_gain = 0.5
         
         # TRUNK COMPENSATION GAINS
         self.cog_shift_gain = 0.6
@@ -53,7 +59,8 @@ class GaitController(Node):
         # GAIT TIMING
         self.duty_cycle = 0.6
         self.total_phases = 40
-        self.phase_increment = 1.0
+        self.phase_increment = 2.0
+        self.gait_timer_period = 0.05
         self.gait_phase = 0.0
 
         # JOINT NAMES
@@ -68,16 +75,22 @@ class GaitController(Node):
         self.linear_x = 0.0
         self.linear_y = 0.0
         self.angular_z = 0.0
+        self.filtered_linear_x = 0.0
+        self.filtered_angular_z = 0.0
+        self.cmd_alpha_linear = 0.25
+        self.cmd_alpha_angular = 0.20
         
         # PER-LEG STEP LENGTHS
         self.leg_step_lengths = [0.0, 0.0, 0.0, 0.0]
         
         self.is_moving = False
-        self.movement_threshold = 0.005  # Minimum step length to consider "moving"
+        self.movement_start_threshold = 0.006
+        self.movement_stop_threshold = 0.003
         
         # STARTUP
+        self.wall_clock = Clock(clock_type=ClockType.SYSTEM_TIME)
         self.started = False
-        self.timer_start = self.create_timer(3.0, self.start_gait)
+        self.timer_start = self.create_timer(3.0, self.start_gait, clock=self.wall_clock)
         
         self.get_logger().info("GAIT CONTROLLER INITIALIZED")
 
@@ -86,48 +99,79 @@ class GaitController(Node):
         self.linear_x = msg.linear.x
         self.linear_y = msg.linear.y
         self.angular_z = msg.angular.z
+
+        # Smooth command inputs to avoid gait jitter from fast cmd_vel fluctuations.
+        self.filtered_linear_x += self.cmd_alpha_linear * (self.linear_x - self.filtered_linear_x)
+        self.filtered_angular_z += self.cmd_alpha_angular * (self.angular_z - self.filtered_angular_z)
         
-        dt = 0.05 * self.total_phases
-        self.base_step_length = self.linear_x * dt
+        dt = self.gait_timer_period * self.total_phases / max(self.phase_increment, 1e-6)
+        self.base_step_length = self.filtered_linear_x * dt
+        
+        effective_angular_z = self.filtered_angular_z
+        if self.limit_turn_to_avoid_counter_step and abs(self.filtered_linear_x) > self.turn_limit_min_linear:
+            max_w_no_counter_step = (2.0 * abs(self.filtered_linear_x)) / max(self.track_width, 1e-6)
+            clamped_w = max(-max_w_no_counter_step, min(max_w_no_counter_step, self.filtered_angular_z))
+            if abs(clamped_w - self.filtered_angular_z) > 1e-6:
+                self.get_logger().info(
+                    f"Turn clamped: wz {self.filtered_angular_z:.2f} -> {clamped_w:.2f}",
+                    throttle_duration_sec=1.0
+                )
+            effective_angular_z = clamped_w
         
         # Differential drive
-        turn_differential = self.angular_z * self.track_width * dt / 2.0
+        turn_differential = (
+            effective_angular_z * self.turn_reduction_gain * self.track_width * dt / 2.0
+        )
         
-        left_step = self.base_step_length - turn_differential
-        right_step = self.base_step_length + turn_differential
-        
-        self.leg_step_lengths = [
-            left_step,
-            right_step,
-            left_step,
-            right_step
+        left_step_target = self.base_step_length - turn_differential
+        right_step_target = self.base_step_length + turn_differential
+
+        # Never allow opposite-direction stepping while translating forward/backward.
+        if self.filtered_linear_x > self.turn_limit_min_linear:
+            left_step_target = max(0.0, left_step_target)
+            right_step_target = max(0.0, right_step_target)
+        elif self.filtered_linear_x < -self.turn_limit_min_linear:
+            left_step_target = min(0.0, left_step_target)
+            right_step_target = min(0.0, right_step_target)
+
+        left_step_target = max(-self.max_step_length, min(self.max_step_length, left_step_target))
+        right_step_target = max(-self.max_step_length, min(self.max_step_length, right_step_target))
+
+        target_steps = [
+            left_step_target,
+            right_step_target,
+            left_step_target,
+            right_step_target
         ]
+        for idx in range(4):
+            self.leg_step_lengths[idx] += self.leg_step_alpha * (
+                target_steps[idx] - self.leg_step_lengths[idx]
+            )
+
+        left_step = self.leg_step_lengths[0]
+        right_step = self.leg_step_lengths[1]
         
         max_step = max(abs(s) for s in self.leg_step_lengths)
         
-        if max_step > self.movement_threshold:
+        if max_step > self.movement_start_threshold:
             # Robot should move
             if not self.is_moving:
                 self.get_logger().info("Starting movement")
                 self.is_moving = True
         else:
             # Robot should stop
-            if self.is_moving:
+            if self.is_moving and max_step < self.movement_stop_threshold:
                 self.get_logger().info("Stopping movement")
                 self.is_moving = False
-                # Reset to neutral stance phase
-                self.gait_phase = 0.0
         
-        if abs(self.linear_x) > 0.01 or abs(self.angular_z) > 0.01:
+        if abs(self.filtered_linear_x) > 0.01 or abs(self.filtered_angular_z) > 0.01:
             self.get_logger().info(
-                f"CMD: vx={self.linear_x:.2f} wz={self.angular_z:.2f} → "
+                f"CMD: vx={self.filtered_linear_x:.2f} wz={effective_angular_z:.2f} → "
                 f"L={left_step:.3f}m R={right_step:.3f}m",
                 throttle_duration_sec=1.0
             )
 
     def inverse_kinematics(self, x, y, z):
-        """Calculate joint angles"""
-
         try:
             theta1 = math.atan2(y, -z)
             r_yz = math.sqrt(y**2 + z**2)
@@ -152,7 +196,7 @@ class GaitController(Node):
             return theta1, theta2, theta3
             
         except Exception as e:
-            self.get_logger().error(f"❌ IK Error: {e}")
+            self.get_logger().error(f"IK Error: {e}")
             return 0.0, 0.0, 0.0
 
     def smooth_interpolate(self, t):
@@ -217,14 +261,12 @@ class GaitController(Node):
     def get_leg_position(self, leg_index, phase):
         step_length = self.leg_step_lengths[leg_index]
         
-        # STATIONARY MODE: All legs in neutral stance
         if not self.is_moving:
             x = 0.0
             y = self.L1
             z = self.stance_height
             return x, y, z, True  # is_stance=True
         
-        # MOVING MODE: Normal gait
         if leg_index in [0, 3]:  # FL, BR
             leg_phase = (phase % self.total_phases) / self.total_phases
         else:  # FR, BL
@@ -255,7 +297,11 @@ class GaitController(Node):
         self.started = True
         self.timer_start.cancel()
         
-        self.timer_gait = self.create_timer(0.05, self.gait_loop)
+        self.timer_gait = self.create_timer(
+            self.gait_timer_period,
+            self.gait_loop,
+            clock=self.wall_clock
+        )
 
     def gait_loop(self):
         try:
@@ -318,7 +364,7 @@ class GaitController(Node):
                 stance_names = [leg_names[i] for i in stance_legs]
                 
                 self.get_logger().info(
-                    f"⚙️  Phase {int(self.gait_phase):2d} | "
+                    f"Phase {int(self.gait_phase):2d} | "
                     f"Stance: {'+'.join(stance_names):8s} | "
                     f"Steps: L={self.leg_step_lengths[0]:.3f} R={self.leg_step_lengths[1]:.3f}",
                     throttle_duration_sec=2.0
@@ -337,7 +383,8 @@ def main(args=None):
         print("\n Gait controller stopped.")
     
     node.destroy_node()
-    rclpy.shutdown()
+    if rclpy.ok():
+        rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

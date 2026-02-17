@@ -35,6 +35,8 @@ install(DIRECTORY
 install(PROGRAMS
   src/gait_controller.py
   src/keyboard_teleop.py
+  src/cmd_vel_mux.py
+  src/go_to_goal.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

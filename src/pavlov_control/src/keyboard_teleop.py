@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
+from rclpy.clock import Clock, ClockType
 from geometry_msgs.msg import Twist
 import sys
 import select
@@ -11,13 +12,25 @@ class KeyboardTeleop(Node):
     
     def __init__(self):
         super().__init__('keyboard_teleop')
-    
-        self.publisher_ = self.create_publisher(Twist, '/cmd_vel', 10)
+
+        self.declare_parameter('cmd_vel_topic', '/cmd_vel')
+        self.declare_parameter('linear_speed', 0.05)
+        self.declare_parameter('angular_speed', 0.3)
+
+        cmd_vel_topic: str = self.get_parameter(
+            'cmd_vel_topic'
+        ).get_parameter_value().string_value
+        self.linear_speed: float = self.get_parameter(
+            'linear_speed'
+        ).get_parameter_value().double_value
+        self.angular_speed: float = self.get_parameter(
+            'angular_speed'
+        ).get_parameter_value().double_value
+
+        self.publisher_ = self.create_publisher(Twist, cmd_vel_topic, 10)
         
-        self.linear_speed = 0.05
-        self.angular_speed = 0.3
-        
-        self.timer = self.create_timer(0.1, self.publish_cmd)
+        self.wall_clock = Clock(clock_type=ClockType.SYSTEM_TIME)
+        self.timer = self.create_timer(0.1, self.publish_cmd, clock=self.wall_clock)
         
         self.current_linear_x = 0.0
         self.current_angular_z = 0.0
@@ -26,7 +39,7 @@ class KeyboardTeleop(Node):
         if sys.stdin.isatty():
             self.settings = termios.tcgetattr(sys.stdin)
         
-        self.get_logger().info("KEYBOARD TELEOP STARTED")
+        self.get_logger().info(f"KEYBOARD TELEOP STARTED | topic={cmd_vel_topic}")
         self.print_instructions()
     
     def print_instructions(self):
@@ -134,7 +147,8 @@ def main(args=None):
         print(f"\n Error: {e}\n")
     
     node.destroy_node()
-    rclpy.shutdown()
+    if rclpy.ok():
+        rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
