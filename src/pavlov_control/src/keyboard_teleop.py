@@ -13,7 +13,7 @@ class KeyboardTeleop(Node):
     def __init__(self):
         super().__init__('keyboard_teleop')
 
-        self.declare_parameter('cmd_vel_topic', '/cmd_vel')
+        self.declare_parameter('cmd_vel_topic', '/cmd_vel_teleop')
         self.declare_parameter('linear_speed', 0.05)
         self.declare_parameter('angular_speed', 0.3)
 

@@ -1,39 +1,76 @@
-# Pavlov Mini – ROS2 Quadruped Robot 🤖
+# Pavlov Mini – ROS2 Quadruped Robot
 
-This repository contains the development of a **ROS2-based quadruped robot**
-designed to autonomously detect and follow a red ball using onboard vision.
+Bu repo, **ROS2 tabanlı bir quadruped** robotun simülasyon + kontrol yazılımını içerir.
 
-**Status:** Work in Progress
+**Durum:** Work in Progress
 
----
+## Özellikler
+- ROS2 node tabanlı kontrol mimarisi
+- (Simülasyonda) kamera ile görsel test altyapısı
+- Görüntü işleme(openCV) ile object detect
+- Modüler yazılım: gait, kontrol, algı
 
-# Features
-- ROS2 node-based control architecture
-- Vision-based red ball detection (OpenCV + HSV)
-- Modular software design for gait, control, and perception
-
----
-
-# System Architecture
+## Sistem Mimarisi (özet)
 - **High-level control:** Raspberry Pi (ROS2)
 - **Low-level control:** Teensy microcontroller
-- **Communication:** Serial / ROS2 topics
-- **Vision:** USB camera
+- **İletişim:** Serial / ROS2 topics
+- **Kamera:** Raspberry Pi Camera V2
 
----
+## Hızlı Başlangıç (Simülasyon)
 
-# Technologies Used
-- ROS2
-- C++ / Python
-- OpenCV
+```bash
+colcon build --symlink-install
+source install/setup.bash
+```
 
----
+Gazebo Sim + robotu başlat:
+```bash
+ros2 launch pavlov_description gazebo.launch.py
+```
 
-# Workspace Structure
+Klavye ile manuel kontrol (teleop):
+```bash
+ros2 launch pavlov_control pavlov_autonomy.launch.py initial_mode:=teleop
+ros2 run pavlov_control keyboard_teleop.py
+```
+
+Otonom modda hedef pose göndermek için örnek:
+```bash
+ros2 topic pub --once /goal_pose geometry_msgs/msg/PoseStamped "{header: {frame_id: 'map'}, pose: {position: {x: 1.40, y: -0.55, z: 0.0}, orientation: {x: 0.0, y: 0.0, z: 0.7071, w: 0.7071}}}"
+```
+
+## Simülasyonda Kamera (`sensor_msgs/Image`)
+
+URDF içine kamera sensörü eklemek tek başına ROS2'de `sensor_msgs/Image` üretmez; Gazebo Sim içindeki kamera verisini ROS2'ye **bridge** etmek gerekir.
+
+Bu repo `gazebo.launch.py` ile varsayılan olarak `empty_with_sensors.sdf` world'ünü açar. Bu world içinde `Sensors` system plugin yüklüdür (kamera sensörlerinin çalışması için gerekli).
+
+Kamerayı ROS2 tarafında görmek için:
+```bash
+ros2 run rqt_image_view rqt_image_view /camera/image_raw
+```
+
+### Test için kırmızı küre spawn etme
+
+Launch varsayılan olarak statik bir kırmızı küre spawn eder.
+
+Kapatmak veya konumunu değiştirmek için:
+```bash
+ros2 launch pavlov_description gazebo.launch.py spawn_red_ball:=false
+ros2 launch pavlov_description gazebo.launch.py red_ball_x:=2.0 red_ball_y:=0.0 red_ball_z:=0.05
+```
+
+### Kamera açısı (pitch)
+
+Top kadrajda az görünüyorsa kamerayı aşağı eğmek için:
+```bash
+ros2 launch pavlov_description gazebo.launch.py camera_sensor_pitch:=-0.6
+```
+
+## Workspace Yapısı
 ```text
 pavlov_mini_ros2_ws/
-├── src/
-│   ├── pavlov_control
-│   ├── pavlov_description
-# pavlov_mini_with_ros2
-Quadruped, Autonomous robot capable of tracking objects using image processing.
+└── src/
+    ├── pavlov_control
+    └── pavlov_description
+```

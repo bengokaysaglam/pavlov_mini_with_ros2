@@ -88,11 +88,6 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
-        femur_fl_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
         feet_fr:
           Alpha: 1
           Show Axes: false

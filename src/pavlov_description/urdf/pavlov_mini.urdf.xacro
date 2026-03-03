@@ -3,6 +3,8 @@
 <robot name="pavlov_mini" xmlns:xacro="http://ros.org/wiki/xacro">
 
   <xacro:arg name="is_ignition" default="true"/>
+  <!-- Simulation-only tweak: tilt camera down/up (radians). Negative looks down. -->
+  <xacro:arg name="camera_sensor_pitch" default="-0.15"/>
 
   <xacro:include filename="$(find pavlov_description)/urdf/pavlov_mini_ros2_control.xacro" />
 
@@ -31,26 +33,37 @@
     </collision>
   </link>
 
-  <link name="lidar_link">
+  <link name="camera_link">
     <visual>
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
       <geometry>
-        <mesh filename= "package://pavlov_description/meshes/lidar.dae"/>
+        <box size="0.030 0.030 0.030"/>
       </geometry>
+      <material name="black">
+        <color rgba="0.1 0.1 0.1 1.0"/>
+      </material>
     </visual>
     <inertial>
-      <origin xyz="0.000 0.000 0.000" rpy ="0.000 0.000 0.000"/>
       <mass value="0.050"/>
-      <inertia
-        ixx="0.00092" ixy="0.00000" ixz="0.00001"
-        iyy="0.00094" iyz="0.00000"
-        izz="0.00093"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0"
+              iyy="0.000001" iyz="0.0"
+              izz="0.000001"/>
     </inertial>
     <collision>
-      <origin xyz="0.010 0.000 -0.015" rpy ="0.000 0.000 0.000"/>
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
       <geometry>
-        <box size="0.080 0.060 0.050"/>
+        <box size="0.030 0.030 0.030"/>
       </geometry>
     </collision>
+  </link>
+
+  <link name="camera_optical_frame">
+    <inertial>
+      <mass value="0.001"/>
+      <inertia ixx="0.000001" ixy="0.0" ixz="0.0"
+              iyy="0.000001" iyz="0.0"
+              izz="0.000001"/>
+    </inertial>
   </link>
 
   <link name="hip_fl_ref">
@@ -519,10 +532,16 @@
 
   <!-- JOINTS -->
 
-  <joint name="lidar" type="fixed" dont_collapse="true">
+  <joint name="camera_joint" type="fixed" dont_collapse="true">
     <parent link="base_link"/>
-    <child  link="lidar_link"/>
-    <origin xyz="0.04312 0.00000 0.08341"/>
+    <child link="camera_link"/>
+    <origin xyz="0.04312 0.00000 0.08341" rpy="0.0 0.0 0.0"/>
+  </joint>
+
+  <joint name="camera_optical_frame_joint" type="fixed" dont_collapse="true">
+    <parent link="camera_link"/>
+    <child link="camera_optical_frame"/>
+    <origin xyz="0.0 0.0 0.0" rpy="-1.5708 0.0 -1.5708"/>
   </joint>
 
   <joint name="fl_ref" type="fixed" dont_collapse="true">
@@ -675,6 +694,37 @@
       <robot_param>robot_description</robot_param>
       <robot_param_node>robot_state_publisher</robot_param_node>
     </plugin>
+  </gazebo>
+
+  <!--
+    NOTE: Gazebo Sim's URDF->SDF conversion collapses fixed joints, so sensors end up
+    attached to the parent lumped link (typically `base_link`). To keep Gazebo topic
+    names predictable, attach the camera sensor to `base_link` with the full optical
+    pose.
+  -->
+  <gazebo reference="base_link">
+    <sensor name="camera_sensor" type="camera">
+      <!--
+        Gazebo camera looks along +X. Keep it aligned with base_link (+X forward),
+        and just tilt it in pitch so it can see the ground / target.
+      -->
+      <pose>0.04312 0 0.08341 0 $(arg camera_sensor_pitch) 0</pose>
+      <always_on>1</always_on>
+      <update_rate>30</update_rate>
+      <visualize>true</visualize>
+      <camera>
+        <horizontal_fov>1.3962634</horizontal_fov>
+        <image>
+          <width>640</width>
+          <height>480</height>
+          <format>R8G8B8</format>
+        </image>
+        <clip>
+          <near>0.02</near>
+          <far>10.0</far>
+        </clip>
+      </camera>
+    </sensor>
   </gazebo>
 
 </robot>

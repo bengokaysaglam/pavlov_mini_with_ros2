@@ -11,9 +11,11 @@ install(
   DIRECTORY
   config
   launch
+  models
   meshes
   rviz
   urdf
+  worlds
   DESTINATION share/${PROJECT_NAME}
 )
 
