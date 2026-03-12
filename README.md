@@ -2,13 +2,10 @@
 
 Bu repo, **ROS2 tabanlı bir quadruped** robotun simülasyon + kontrol yazılımını içerir.
 
-**Durum:** Work in Progress
-
 ## Özellikler
 - ROS2 node tabanlı kontrol mimarisi
 - (Simülasyonda) kamera ile görsel test altyapısı
 - Görüntü işleme(openCV) ile object detect
-- Modüler yazılım: gait, kontrol, algı
 
 ## Sistem Mimarisi (özet)
 - **High-level control:** Raspberry Pi (ROS2)
@@ -39,11 +36,9 @@ Otonom modda hedef pose göndermek için örnek:
 ros2 topic pub --once /goal_pose geometry_msgs/msg/PoseStamped "{header: {frame_id: 'map'}, pose: {position: {x: 1.40, y: -0.55, z: 0.0}, orientation: {x: 0.0, y: 0.0, z: 0.7071, w: 0.7071}}}"
 ```
 
-## Simülasyonda Kamera (`sensor_msgs/Image`)
+## Simülasyonda Kamera(`sensor_msgs/Image`)
 
 URDF içine kamera sensörü eklemek tek başına ROS2'de `sensor_msgs/Image` üretmez; Gazebo Sim içindeki kamera verisini ROS2'ye **bridge** etmek gerekir.
-
-Bu repo `gazebo.launch.py` ile varsayılan olarak `empty_with_sensors.sdf` world'ünü açar. Bu world içinde `Sensors` system plugin yüklüdür (kamera sensörlerinin çalışması için gerekli).
 
 Kamerayı ROS2 tarafında görmek için:
 ```bash
@@ -58,19 +53,4 @@ Kapatmak veya konumunu değiştirmek için:
 ```bash
 ros2 launch pavlov_description gazebo.launch.py spawn_red_ball:=false
 ros2 launch pavlov_description gazebo.launch.py red_ball_x:=2.0 red_ball_y:=0.0 red_ball_z:=0.05
-```
-
-### Kamera açısı (pitch)
-
-Top kadrajda az görünüyorsa kamerayı aşağı eğmek için:
-```bash
-ros2 launch pavlov_description gazebo.launch.py camera_sensor_pitch:=-0.6
-```
-
-## Workspace Yapısı
-```text
-pavlov_mini_ros2_ws/
-└── src/
-    ├── pavlov_control
-    └── pavlov_description
 ```

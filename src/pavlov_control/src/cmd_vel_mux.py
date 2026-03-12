@@ -17,41 +17,21 @@ class CmdVelMux(Node):
         self.declare_parameter("cmd_timeout_sec", 0.5)
         self.declare_parameter("publish_rate_hz", 20.0)
 
-        self.teleop_topic: str = self.get_parameter(
-            "teleop_topic"
-        ).get_parameter_value().string_value
-        self.auto_topic: str = self.get_parameter(
-            "auto_topic"
-        ).get_parameter_value().string_value
-        self.output_topic: str = self.get_parameter(
-            "output_topic"
-        ).get_parameter_value().string_value
-        self.mode_topic: str = self.get_parameter(
-            "mode_topic"
-        ).get_parameter_value().string_value
-        self.mode: str = self.get_parameter(
-            "initial_mode"
-        ).get_parameter_value().string_value.lower()
-        self.cmd_timeout_sec: float = self.get_parameter(
-            "cmd_timeout_sec"
-        ).get_parameter_value().double_value
-        publish_rate: float = self.get_parameter(
-            "publish_rate_hz"
-        ).get_parameter_value().double_value
+        self.teleop_topic: str = self.get_parameter("teleop_topic").get_parameter_value().string_value
+        self.auto_topic: str = self.get_parameter("auto_topic").get_parameter_value().string_value
+        self.output_topic: str = self.get_parameter("output_topic").get_parameter_value().string_value
+        self.mode_topic: str = self.get_parameter("mode_topic").get_parameter_value().string_value
+        self.mode: str = self.get_parameter("initial_mode").get_parameter_value().string_value.lower()
+        self.cmd_timeout_sec: float = self.get_parameter("cmd_timeout_sec").get_parameter_value().double_value
+        publish_rate: float = self.get_parameter("publish_rate_hz").get_parameter_value().double_value
 
         if self.mode not in ("teleop", "auto"):
             self.get_logger().warn(f"Invalid initial_mode='{self.mode}', switching to 'teleop'")
             self.mode = "teleop"
 
-        self.teleop_sub = self.create_subscription(
-            Twist, self.teleop_topic, self.teleop_callback, 10
-        )
-        self.auto_sub = self.create_subscription(
-            Twist, self.auto_topic, self.auto_callback, 10
-        )
-        self.mode_sub = self.create_subscription(
-            String, self.mode_topic, self.mode_callback, 10
-        )
+        self.teleop_sub = self.create_subscription(Twist, self.teleop_topic, self.teleop_callback, 10)
+        self.auto_sub = self.create_subscription(Twist, self.auto_topic, self.auto_callback, 10)
+        self.mode_sub = self.create_subscription(String, self.mode_topic, self.mode_callback, 10)
         self.cmd_pub = self.create_publisher(Twist, self.output_topic, 10)
 
         self.last_teleop_cmd = Twist()

@@ -14,19 +14,13 @@ class KeyboardTeleop(Node):
         super().__init__('keyboard_teleop')
 
         self.declare_parameter('cmd_vel_topic', '/cmd_vel_teleop')
-        self.declare_parameter('linear_speed', 0.05)
-        self.declare_parameter('angular_speed', 0.3)
+        self.declare_parameter('linear_speed', 0.07)
+        self.declare_parameter('angular_speed', 0.5)
 
-        cmd_vel_topic: str = self.get_parameter(
-            'cmd_vel_topic'
-        ).get_parameter_value().string_value
-        self.linear_speed: float = self.get_parameter(
-            'linear_speed'
-        ).get_parameter_value().double_value
-        self.angular_speed: float = self.get_parameter(
-            'angular_speed'
-        ).get_parameter_value().double_value
-
+        cmd_vel_topic: str = self.get_parameter('cmd_vel_topic').get_parameter_value().string_value
+        self.linear_speed: float = self.get_parameter('linear_speed').get_parameter_value().double_value
+        self.angular_speed: float = self.get_parameter('angular_speed').get_parameter_value().double_value
+        
         self.publisher_ = self.create_publisher(Twist, cmd_vel_topic, 10)
         
         self.wall_clock = Clock(clock_type=ClockType.SYSTEM_TIME)
@@ -62,7 +56,6 @@ class KeyboardTeleop(Node):
         
         tty.setraw(sys.stdin.fileno())
         
-        # Check if input is available
         rlist, _, _ = select.select([sys.stdin], [], [], timeout)
         
         if rlist:
@@ -87,7 +80,6 @@ class KeyboardTeleop(Node):
                 key = self.get_key(timeout=0.1)
                 
                 if key:
-                    # Process key
                     if key.lower() == 'w':
                         self.current_linear_x = self.linear_speed
                         self.current_angular_z = 0.0
@@ -117,10 +109,9 @@ class KeyboardTeleop(Node):
                         self.get_logger().info("QUITTING...")
                         break
                     
-                    elif key == '\x03':  # Ctrl+C
+                    elif key == '\x03':
                         break
                 
-                # Spin once to process ROS callbacks
                 rclpy.spin_once(self, timeout_sec=0)
         
         except KeyboardInterrupt:

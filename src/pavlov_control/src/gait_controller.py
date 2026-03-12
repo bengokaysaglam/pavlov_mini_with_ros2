@@ -11,20 +11,10 @@ class GaitController(Node):
     def __init__(self):
         super().__init__("gait_controller")
         
-        self.publisher_ = self.create_publisher(
-            JointTrajectory,
-            "/joint_trajectory_controller/joint_trajectory",
-            10
-        )
+        self.publisher_ = self.create_publisher(JointTrajectory,"/joint_trajectory_controller/joint_trajectory",10)
+        self.cmd_vel_sub = self.create_subscription(Twist,"/cmd_vel",self.cmd_vel_callback,10)
 
-        self.cmd_vel_sub = self.create_subscription(
-            Twist,
-            "/cmd_vel",
-            self.cmd_vel_callback,
-            10
-        )
-
-        # ROBOT KINEMATICS PARAMETERS
+        # ROBOT LEG DIMENSIONS
         self.L1 = 0.03559
         self.L2 = 0.10000
         self.L3 = 0.10000
@@ -71,7 +61,6 @@ class GaitController(Node):
             "hip1_br", "hip2_br", "knee_br"
         ]
         
-        # VELOCITY COMMANDS
         self.linear_x = 0.0
         self.linear_y = 0.0
         self.angular_z = 0.0
@@ -87,7 +76,6 @@ class GaitController(Node):
         self.movement_start_threshold = 0.006
         self.movement_stop_threshold = 0.003
         
-        # STARTUP
         self.wall_clock = Clock(clock_type=ClockType.SYSTEM_TIME)
         self.started = False
         self.timer_start = self.create_timer(3.0, self.start_gait, clock=self.wall_clock)
@@ -108,32 +96,46 @@ class GaitController(Node):
         self.base_step_length = self.filtered_linear_x * dt
         
         effective_angular_z = self.filtered_angular_z
+
         if self.limit_turn_to_avoid_counter_step and abs(self.filtered_linear_x) > self.turn_limit_min_linear:
+
+            # v_left = v - (w * track_width / 2)
+            # v_right = v + (w * track_width / 2)
+            # To avoid counter-stepping, we need to ensure that neither v_left nor v_right goes negative when moving forward, or positive when moving backward. This gives us:
+            # For forward motion: w <= (2 * v) / track_width
+            # For backward motion: w >= (2 * v) / track_width
             max_w_no_counter_step = (2.0 * abs(self.filtered_linear_x)) / max(self.track_width, 1e-6)
+
+            # If the commanded turn rate exceeds the limit, we clamp it and log a warning.
             clamped_w = max(-max_w_no_counter_step, min(max_w_no_counter_step, self.filtered_angular_z))
+
             if abs(clamped_w - self.filtered_angular_z) > 1e-6:
-                self.get_logger().info(
-                    f"Turn clamped: wz {self.filtered_angular_z:.2f} -> {clamped_w:.2f}",
-                    throttle_duration_sec=1.0
-                )
+                self.get_logger().info(f"Turn clamped: wz {self.filtered_angular_z:.2f} -> {clamped_w:.2f}",throttle_duration_sec=1.0)
+            # Use the clamped turn rate for gait calculations to prevent counter-stepping.
             effective_angular_z = clamped_w
         
-        # Differential drive
-        turn_differential = (
-            effective_angular_z * self.turn_reduction_gain * self.track_width * dt / 2.0
-        )
-        
+        # Calculate turn differential for step length adjustment. Positive turn_differential means the left legs take shorter steps and the right legs take longer steps, causing a turn to the left.
+        # The term (turn_reduction_gain) allows us to reduce the turn effect to prevent overcompensation, which can cause jitter or instability at low speeds. 
+        turn_differential = (effective_angular_z * self.turn_reduction_gain * self.track_width * dt / 2.0)
+
         left_step_target = self.base_step_length - turn_differential
         right_step_target = self.base_step_length + turn_differential
 
-        # Never allow opposite-direction stepping while translating forward/backward.
+        # If the robot is commanded to move forward, we want to prevent the inner legs from taking negative steps 
+        # which would cause them to lift and step backwards (counter-stepping). Similarly, if moving backward, 
+        # we want to prevent them from taking positive steps. This logic ensures that when moving forward, both 
+        # legs take positive steps, and when moving backward, both legs take negative steps, thus maintaining 
+        # stability and preventing counter-stepping.
         if self.filtered_linear_x > self.turn_limit_min_linear:
             left_step_target = max(0.0, left_step_target)
             right_step_target = max(0.0, right_step_target)
+
         elif self.filtered_linear_x < -self.turn_limit_min_linear:
             left_step_target = min(0.0, left_step_target)
             right_step_target = min(0.0, right_step_target)
 
+        # Finally, we clamp the step targets to the maximum allowed step length to ensure we don't 
+        # command unrealistic steps that could destabilize the robot.
         left_step_target = max(-self.max_step_length, min(self.max_step_length, left_step_target))
         right_step_target = max(-self.max_step_length, min(self.max_step_length, right_step_target))
 
@@ -143,10 +145,9 @@ class GaitController(Node):
             left_step_target,
             right_step_target
         ]
+        
         for idx in range(4):
-            self.leg_step_lengths[idx] += self.leg_step_alpha * (
-                target_steps[idx] - self.leg_step_lengths[idx]
-            )
+            self.leg_step_lengths[idx] += self.leg_step_alpha * (target_steps[idx] - self.leg_step_lengths[idx])
 
         left_step = self.leg_step_lengths[0]
         right_step = self.leg_step_lengths[1]
@@ -154,22 +155,16 @@ class GaitController(Node):
         max_step = max(abs(s) for s in self.leg_step_lengths)
         
         if max_step > self.movement_start_threshold:
-            # Robot should move
             if not self.is_moving:
                 self.get_logger().info("Starting movement")
                 self.is_moving = True
         else:
-            # Robot should stop
             if self.is_moving and max_step < self.movement_stop_threshold:
                 self.get_logger().info("Stopping movement")
                 self.is_moving = False
         
         if abs(self.filtered_linear_x) > 0.01 or abs(self.filtered_angular_z) > 0.01:
-            self.get_logger().info(
-                f"CMD: vx={self.filtered_linear_x:.2f} wz={effective_angular_z:.2f} → "
-                f"L={left_step:.3f}m R={right_step:.3f}m",
-                throttle_duration_sec=1.0
-            )
+            self.get_logger().info(f"CMD: vx={self.filtered_linear_x:.2f} wz={effective_angular_z:.2f} → "f"L={left_step:.3f}m R={right_step:.3f}m",throttle_duration_sec=1.0)
 
     def inverse_kinematics(self, x, y, z):
         try:
@@ -202,6 +197,9 @@ class GaitController(Node):
     def smooth_interpolate(self, t):
         return t * t * t * (t * (t * 6 - 15) + 10)
 
+    # This function generates the foot trajectory during the swing phase. It uses a smooth interpolation 
+    # to create a natural stepping motion, where the foot lifts up to the specified step height at the 
+    # midpoint of the swing and then comes back down to the stance height by the end of the swing.
     def get_swing_trajectory(self, t, step_length):
         t_smooth = self.smooth_interpolate(t)
         x = -step_length / 2 + step_length * t_smooth
@@ -232,8 +230,12 @@ class GaitController(Node):
         stance_legs = []
         
         for leg_idx in range(4):
+            # Determine leg phase based on gait phase and leg index. Legs 0 and 3 (FL and BR) are in phase 
+            # while legs 1 and 2 (FR and BL) are out of phase by half a cycle. This creates the alternating tripod gait pattern.
             if leg_idx in [0, 3]:
                 leg_phase = (phase % self.total_phases) / self.total_phases
+            # For legs 1 and 2, we add half the total phases to create the out-of-phase relationship.
+            # The modulo operation ensures that the phase wraps around correctly.
             else:
                 leg_phase = ((phase + self.total_phases/2) % self.total_phases) / self.total_phases
             
@@ -243,6 +245,9 @@ class GaitController(Node):
                 stance_legs.append(leg_idx)
         
         if len(stance_legs) >= 2:
+            # Calculate the average position of the stance legs to determine the support polygon center.
+            # This is a simple way to estimate where the robot's weight is supported, and we can use this 
+            # information to shift the trunk in the opposite direction to help maintain balance.
             support_x = sum(self.hip_positions[i][0] for i in stance_legs) / len(stance_legs)
             support_y = sum(self.hip_positions[i][1] for i in stance_legs) / len(stance_legs)
             
@@ -265,11 +270,11 @@ class GaitController(Node):
             x = 0.0
             y = self.L1
             z = self.stance_height
-            return x, y, z, True  # is_stance=True
+            return x, y, z, True
         
-        if leg_index in [0, 3]:  # FL, BR
+        if leg_index in [0, 3]:
             leg_phase = (phase % self.total_phases) / self.total_phases
-        else:  # FR, BL
+        else:
             leg_phase = ((phase + self.total_phases/2) % self.total_phases) / self.total_phases
 
         swing_duration = 1.0 - self.duty_cycle
@@ -354,11 +359,9 @@ class GaitController(Node):
             msg.points = [point]
             self.publisher_.publish(msg)
             
-            # ONLY INCREMENT PHASE IF MOVING
             if self.is_moving:
                 self.gait_phase = (self.gait_phase + self.phase_increment) % self.total_phases
             
-            # Periodic logging (only when moving)
             if self.is_moving and int(self.gait_phase) % 10 == 0:
                 leg_names = ["FL", "FR", "BL", "BR"]
                 stance_names = [leg_names[i] for i in stance_legs]
