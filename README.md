@@ -66,11 +66,3 @@ Top kadrajda az görünüyorsa kamerayı aşağı eğmek için:
 ```bash
 ros2 launch pavlov_description gazebo.launch.py camera_sensor_pitch:=-0.6
 ```
-
-## Workspace Yapısı
-```text
-pavlov_mini_ros2_ws/
-└── src/
-    ├── pavlov_control
-    └── pavlov_description
-```
