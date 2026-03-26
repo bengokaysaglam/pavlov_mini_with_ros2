@@ -29,7 +29,6 @@ Klavye ile manuel kontrol (teleop):
 ```bash
 ros2 launch pavlov_control pavlov_autonomy.launch.py initial_mode:=teleop
 ros2 run pavlov_control keyboard_teleop.py
-```
 
 Otonom modda hedef pose göndermek için örnek:
 ```bash
@@ -38,19 +37,29 @@ ros2 topic pub --once /goal_pose geometry_msgs/msg/PoseStamped "{header: {frame_
 
 ## Simülasyonda Kamera(`sensor_msgs/Image`)
 
-URDF içine kamera sensörü eklemek tek başına ROS2'de `sensor_msgs/Image` üretmez; Gazebo Sim içindeki kamera verisini ROS2'ye **bridge** etmek gerekir.
-
 Kamerayı ROS2 tarafında görmek için:
 ```bash
 ros2 run rqt_image_view rqt_image_view /camera/image_raw
 ```
 
-### Test için kırmızı küre spawn etme
+## Kameradan top konumu (monocular)
 
-Launch varsayılan olarak statik bir kırmızı küre spawn eder.
+`pavlov_control/ball_localizer.py` node'u, görüntüdeki kırmızı küreyi HSV threshold ile bulur ve **ekrandaki piksel yarıçapından mesafeyi** tahmin edip topun 3D konumunu yayınlar.
 
-Kapatmak veya konumunu değiştirmek için:
+Topic’leri kontrol et:
 ```bash
-ros2 launch pavlov_description gazebo.launch.py spawn_red_ball:=false
-ros2 launch pavlov_description gazebo.launch.py red_ball_x:=2.0 red_ball_y:=0.0 red_ball_z:=0.05
+ros2 topic echo /ball/point
+ros2 topic echo /ball/pose
+ros2 topic echo /ball/visible
+ros2 run rqt_image_view rqt_image_view /ball/debug_image
 ```
+
+Algılama ayarı (top uzakta kayboluyorsa):
+```bash
+ros2 launch pavlov_control ball_localizer.launch.py sat_min:=60 val_min:=50 min_radius_px:=3.0 max_range_m:=10.0 kernel_size:=3
+```
+
+Akış:
+1) `ball_localizer` topun `base_link` frame’inde konumunu yayınlar (`/ball/point`, `/ball/pose`).
+2) `ball_to_goal` bu konumu `/goal_pose` olarak (frame=`base_link`) yayınlar.
+3) `go_to_goal` `header.frame_id=base_link` gelen goal’leri **relative goal** olarak yorumlar.

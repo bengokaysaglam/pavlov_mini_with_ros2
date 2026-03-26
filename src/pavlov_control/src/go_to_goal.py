@@ -30,8 +30,8 @@ class GoToGoal(Node):
 
         # Control parameters
         self.declare_parameter("control_rate_hz", 20.0)
-        self.declare_parameter("max_linear_speed", 0.08)
-        self.declare_parameter("max_angular_speed", 0.8)
+        self.declare_parameter("max_linear_speed", 0.10)
+        self.declare_parameter("max_angular_speed", 1.2)
 
         # Proportional control gains
         self.declare_parameter("kp_linear", 0.8)
@@ -83,6 +83,7 @@ class GoToGoal(Node):
         self.goal_y = 0.0
         self.goal_yaw = 0.0
         self.goal_active = False
+        self.last_goal_frame = ""
 
         self.wall_clock = Clock(clock_type=ClockType.SYSTEM_TIME)
         self.last_odom_time = None
@@ -105,8 +106,11 @@ class GoToGoal(Node):
         self.get_logger().info(f"GO_TO_GOAL READY | goal={self.goal_topic} cmd_out={self.cmd_vel_topic} "f"odom={odom_mode}")
 
     def goal_callback(self, msg: PoseStamped):
-        self.goal_x = msg.pose.position.x
-        self.goal_y = msg.pose.position.y
+        frame_id = (msg.header.frame_id or "").strip()
+        self.last_goal_frame = frame_id
+
+        raw_x = float(msg.pose.position.x)
+        raw_y = float(msg.pose.position.y)
 
         qx = msg.pose.orientation.x
         qy = msg.pose.orientation.y
@@ -114,13 +118,29 @@ class GoToGoal(Node):
         qw = msg.pose.orientation.w
         quat_norm_sq = qx*qx + qy*qy + qz*qz + qw*qw
 
+        is_relative = frame_id in ("base_link", "base_footprint")
+        if is_relative:
+            cy = math.cos(self.current_yaw)
+            sy = math.sin(self.current_yaw)
+            self.goal_x = self.current_x + cy * raw_x - sy * raw_y
+            self.goal_y = self.current_y + sy * raw_x + cy * raw_y
+        else:
+            self.goal_x = raw_x
+            self.goal_y = raw_y
+
         if quat_norm_sq > 1e-8:
-            self.goal_yaw = yaw_from_quaternion(qx, qy, qz, qw)
+            yaw_in = yaw_from_quaternion(qx, qy, qz, qw)
+            self.goal_yaw = normalize_angle(self.current_yaw + yaw_in) if is_relative else yaw_in
         else:
             self.goal_yaw = self.current_yaw
 
         self.goal_active = True
-        self.get_logger().info(f"New goal received: x={self.goal_x:.2f}, y={self.goal_y:.2f}, yaw={self.goal_yaw:.2f}")
+        frame_note = f"frame='{frame_id or 'UNKNOWN'}'" if frame_id else "frame=UNKNOWN"
+        rel_note = "relative" if is_relative else "absolute"
+        self.get_logger().info(
+            f"New goal received ({rel_note}, {frame_note}): "
+            f"x={self.goal_x:.2f}, y={self.goal_y:.2f}, yaw={self.goal_yaw:.2f}"
+        )
 
         if self.auto_switch_mode:
             self.publish_mode("auto")

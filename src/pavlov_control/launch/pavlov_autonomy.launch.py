@@ -9,12 +9,19 @@ def generate_launch_description():
     initial_mode = LaunchConfiguration("initial_mode")
     use_external_odom = LaunchConfiguration("use_external_odom")
 
+    max_linear_speed = LaunchConfiguration("max_linear_speed")
+    max_angular_speed = LaunchConfiguration("max_angular_speed")
+    max_step_length = LaunchConfiguration("max_step_length")
+
     gait_controller = Node(
         package="pavlov_control",
         executable="gait_controller.py",
         name="gait_controller",
         output="screen",
-        parameters=[{"use_sim_time": use_sim_time}],
+        parameters=[
+            {"use_sim_time": use_sim_time},
+            {"max_step_length": max_step_length},
+        ],
     )
 
     cmd_vel_mux = Node(
@@ -43,6 +50,8 @@ def generate_launch_description():
             {"goal_topic": "/goal_pose"},
             {"cmd_vel_topic": "/cmd_vel_auto"},
             {"control_mode_topic": "/control_mode"},
+            {"max_linear_speed": max_linear_speed},
+            {"max_angular_speed": max_angular_speed},
         ],
     )
 
@@ -62,6 +71,21 @@ def generate_launch_description():
                 "use_external_odom",
                 default_value="false",
                 description="true: use /odom, false: internal integration",
+            ),
+            DeclareLaunchArgument(
+                "max_linear_speed",
+                default_value="0.10",
+                description="go_to_goal max linear speed (m/s)",
+            ),
+            DeclareLaunchArgument(
+                "max_angular_speed",
+                default_value="1.2",
+                description="go_to_goal max angular speed (rad/s)",
+            ),
+            DeclareLaunchArgument(
+                "max_step_length",
+                default_value="0.10",
+                description="gait_controller max step length (m)",
             ),
             gait_controller,
             cmd_vel_mux,

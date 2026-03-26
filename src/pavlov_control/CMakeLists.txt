@@ -14,6 +14,7 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(cv_bridge REQUIRED)
 
 find_package(std_msgs REQUIRED)
 find_package(trajectory_msgs REQUIRED)
@@ -37,6 +38,8 @@ install(PROGRAMS
   src/keyboard_teleop.py
   src/cmd_vel_mux.py
   src/go_to_goal.py
+  src/ball_localizer.py
+  src/ball_to_goal.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

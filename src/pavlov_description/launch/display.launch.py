@@ -11,10 +11,8 @@ def generate_launch_description():
     urdf_file = os.path.join(pkg_share, 'urdf', 'pavlov_mini.urdf.xacro')
     rviz_config_file = os.path.join(pkg_share, 'rviz', 'rviz_config.rviz')
     
-    # URDF'i xacro'dan dönüştür
     robot_description_content = Command(['xacro', ' ', urdf_file])
     
-    # Robot State Publisher
     robot_state_publisher_node = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
@@ -24,14 +22,12 @@ def generate_launch_description():
         }]
     )
 
-    # Joint State Publisher GUI
     joint_state_publisher_gui_node = Node(
         package='joint_state_publisher_gui',
         executable='joint_state_publisher_gui',
         name='joint_state_publisher_gui'
     )
     
-    # RViz
     rviz_node = Node(
         package='rviz2',
         executable='rviz2',

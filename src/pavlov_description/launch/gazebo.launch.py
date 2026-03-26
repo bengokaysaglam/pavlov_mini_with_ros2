@@ -11,6 +11,7 @@ from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
+
     pavlov_description = get_package_share_directory("pavlov_description")
     default_world = os.path.join(pavlov_description, "worlds", "empty_with_sensors.sdf")
     
@@ -36,6 +37,18 @@ def generate_launch_description():
         name="spawn_red_ball",
         default_value="true",
         description="Spawn a static red sphere model for camera testing",
+    )
+
+    spawn_robot_delay_sec_arg = DeclareLaunchArgument(
+        name="spawn_robot_delay_sec",
+        default_value="2.0",
+        description="Delay before spawning the robot (helps Gazebo startup race conditions)",
+    )
+
+    spawn_red_ball_delay_sec_arg = DeclareLaunchArgument(
+        name="spawn_red_ball_delay_sec",
+        default_value="3.0",
+        description="Delay before spawning the red ball",
     )
 
     red_ball_x_arg = DeclareLaunchArgument(name="red_ball_x", default_value="1.5")
@@ -117,10 +130,14 @@ def generate_launch_description():
         arguments=[
             "-topic", "robot_description",
             "-name", "pavlov_mini_ros2",
-            "-x", "0.0",
-            "-y", "0.0",
-            "-z", "0.35"
+            "-x", LaunchConfiguration("robot_x"),
+            "-y", LaunchConfiguration("robot_y"),
+            "-z", LaunchConfiguration("robot_z"),
         ],
+    )
+    delayed_robot = TimerAction(
+        period=LaunchConfiguration("spawn_robot_delay_sec"),
+        actions=[gz_spawn_entity],
     )
 
     red_ball_sdf = PathJoinSubstitution(
@@ -149,7 +166,11 @@ def generate_launch_description():
         ],
         condition=IfCondition(LaunchConfiguration("spawn_red_ball")),
     )
-    delayed_red_ball = TimerAction(period=2.0, actions=[gz_spawn_red_ball])
+
+    delayed_red_ball = TimerAction(
+        period=LaunchConfiguration("spawn_red_ball_delay_sec"),
+        actions=[gz_spawn_red_ball],
+    )
     
     gz_ros2_bridge = Node(
         package="ros_gz_bridge",
@@ -184,7 +205,6 @@ def generate_launch_description():
         package="ros_gz_bridge",
         executable="parameter_bridge",
         arguments=[
-            # Use Gazebo->ROS2 direction for sensor streams.
             PythonExpression(
                 ["'", camera_gz_image_topic, "@sensor_msgs/msg/Image[gz.msgs.Image'"]
             ),
@@ -243,7 +263,12 @@ def generate_launch_description():
         model_arg,
         camera_sensor_pitch_arg,
         world_arg,
+        DeclareLaunchArgument(name="robot_x", default_value="0.0"),
+        DeclareLaunchArgument(name="robot_y", default_value="0.0"),
+        DeclareLaunchArgument(name="robot_z", default_value="0.35"),
         spawn_red_ball_arg,
+        spawn_robot_delay_sec_arg,
+        spawn_red_ball_delay_sec_arg,
         red_ball_x_arg,
         red_ball_y_arg,
         red_ball_z_arg,
@@ -255,7 +280,7 @@ def generate_launch_description():
         gazebo_resource_path,
         robot_state_publisher_node,
         gazebo,
-        gz_spawn_entity,
+        delayed_robot,
         delayed_red_ball,
         gz_ros2_bridge,
         camera_bridge_info,

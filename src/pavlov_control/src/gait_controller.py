@@ -10,6 +10,12 @@ import math
 class GaitController(Node):
     def __init__(self):
         super().__init__("gait_controller")
+
+        self.declare_parameter("max_step_length", 0.10)
+        self.declare_parameter("gait_timer_period", 0.05)
+        self.declare_parameter("phase_increment", 2.0)
+        self.declare_parameter("cmd_alpha_linear", 0.25)
+        self.declare_parameter("cmd_alpha_angular", 0.20)
         
         self.publisher_ = self.create_publisher(JointTrajectory,"/joint_trajectory_controller/joint_trajectory",10)
         self.cmd_vel_sub = self.create_subscription(Twist,"/cmd_vel",self.cmd_vel_callback,10)
@@ -23,7 +29,7 @@ class GaitController(Node):
         self.step_height = 0.020
         self.stance_height = -0.15
         self.base_step_length = 0.00
-        self.max_step_length = 0.06
+        self.max_step_length = float(self.get_parameter("max_step_length").value)
         self.leg_step_alpha = 0.25
         
         # TURNING PARAMETERS
@@ -49,8 +55,8 @@ class GaitController(Node):
         # GAIT TIMING
         self.duty_cycle = 0.6
         self.total_phases = 40
-        self.phase_increment = 2.0
-        self.gait_timer_period = 0.05
+        self.phase_increment = float(self.get_parameter("phase_increment").value)
+        self.gait_timer_period = float(self.get_parameter("gait_timer_period").value)
         self.gait_phase = 0.0
 
         # JOINT NAMES
@@ -66,8 +72,8 @@ class GaitController(Node):
         self.angular_z = 0.0
         self.filtered_linear_x = 0.0
         self.filtered_angular_z = 0.0
-        self.cmd_alpha_linear = 0.25
-        self.cmd_alpha_angular = 0.20
+        self.cmd_alpha_linear = float(self.get_parameter("cmd_alpha_linear").value)
+        self.cmd_alpha_angular = float(self.get_parameter("cmd_alpha_angular").value)
         
         # PER-LEG STEP LENGTHS
         self.leg_step_lengths = [0.0, 0.0, 0.0, 0.0]
